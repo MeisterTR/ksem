@@ -1,0 +1,14 @@
+{
+  "domain": "ksem",
+  "name": "KSEM",
+  "version": "0.5.5",
+  "documentation": "https://github.com/yourusername/ksem",
+  "config_flow": true,
+  "requirements": [
+    "aiohttp"
+  ],
+  "dependencies": [],
+  "codeowners": [
+    "@yourgithubusername"
+  ]
+}
