@@ -8,35 +8,75 @@ from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 
 from .const import DOMAIN
 from .api import KsemClient
+from .modbus_helper import ModbusWallboxClient
 
 _LOGGER = logging.getLogger(__name__)
-
 PLATFORMS = ["sensor"]
 
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    _LOGGER.debug("KSEM YAML Setup")
     return True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("Setup entry %s", entry.entry_id)
     hass.data.setdefault(DOMAIN, {})
 
-    client = KsemClient(hass, entry.data["host"], entry.data["password"])
+    host = entry.data["host"]
+    password = entry.data["password"]
+    client = KsemClient(hass, host, password)
+    modbus_client = ModbusWallboxClient(host)
 
-    async def _update():
+    async def _update_smartmeter():
         try:
             return await client.get_device_status()
         except Exception as err:
-            raise UpdateFailed(err)
+            raise UpdateFailed(f"Smartmeter-Fehler: {err}")
 
-    coordinator = DataUpdateCoordinator(
+    async def _update_wallbox():
+        try:
+            wallboxes = await client.get_evse_list()
+            detailed = []
+            for wb in wallboxes:
+                uuid = wb.get("uuid")
+                details = await client.get_evse_details(uuid)
+                wb["details"] = details
+                detailed.append(wb)
+            return detailed
+        except Exception as err:
+            raise UpdateFailed(f"Wallbox-Fehler: {err}")
+
+    async def _update_modbus():
+        try:
+            return await modbus_client.read_all()
+        except Exception as err:
+            raise UpdateFailed(f"Modbus-Wallbox-Fehler: {err}")
+
+    smart_coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
-        name=DOMAIN,
-        update_method=_update,
+        name="ksem_smartmeter",
+        update_method=_update_smartmeter,
         update_interval=datetime.timedelta(seconds=30),
     )
-    await coordinator.async_refresh()
+    wallbox_coordinator = DataUpdateCoordinator(
+        hass,
+        _LOGGER,
+        name="ksem_wallbox",
+        update_method=_update_wallbox,
+        update_interval=datetime.timedelta(seconds=30),
+    )
+    modbus_coordinator = DataUpdateCoordinator(
+        hass,
+        _LOGGER,
+        name="ksem_modbus_wallbox",
+        update_method=_update_modbus,
+        update_interval=datetime.timedelta(seconds=10),
+    )
+
+    await smart_coordinator.async_refresh()
+    await wallbox_coordinator.async_refresh()
+    await modbus_coordinator.async_refresh()
 
     info = await client.get_device_info()
     mac = info.get("Mac")
@@ -44,13 +84,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     model = info.get("ProductName")
     fw = info.get("FirmwareVersion")
     hw = info.get("DeviceType")
-    host = entry.data["host"]
 
     device_info = DeviceInfo(
         identifiers={(DOMAIN, serial)},
         connections={(CONNECTION_NETWORK_MAC, mac)},
         name="Smartmeter",
-        manufacturer="Emos",
+        manufacturer="Kostal",
         model=model,
         hw_version=hw,
         sw_version=fw,
@@ -58,16 +97,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     hass.data[DOMAIN][entry.entry_id] = {
-        "coordinator": coordinator,
+        "client": client,
+        "smart_coordinator": smart_coordinator,
+        "wallbox_coordinator": wallbox_coordinator,
+        "modbus_coordinator": modbus_coordinator,
         "device_info": device_info,
-        "serial": serial
+        "serial": serial,
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
+
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    unload = await hass.config_entries.async_forward_entry_unload(entry, PLATFORMS)
-    if unload:
+    unload_ok = all(
+        [
+            await hass.config_entries.async_forward_entry_unload(entry, platform)
+            for platform in PLATFORMS
+        ]
+    )
+    if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
-    return unload
+    return unload_ok

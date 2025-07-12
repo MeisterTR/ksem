@@ -3,21 +3,28 @@ import datetime
 from typing import Union
 from aiohttp import ClientResponse
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-
 from .helper import bearer_header
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class Tokens:
     """Hält Access-Token und Ablaufdatum"""
 
     def __init__(self, access_token: str, token_type: str, expires_in: int):
         self.access_token = access_token
-        self.expire_date = datetime.datetime.now() + datetime.timedelta(seconds=expires_in)
+        self.expire_date = datetime.datetime.now() + datetime.timedelta(
+            seconds=expires_in
+        )
         _LOGGER.debug("Token erstellt, gültig bis %s", self.expire_date)
+
 
 class InvalidAuth(Exception):
     """Fehlerhafte Authentifizierung"""
+
 
 class KsemClient:
     """Client für REST-Aufrufe an die KSEM API mit Token-Refresh"""
@@ -44,7 +51,11 @@ class KsemClient:
         token_data = await resp.json()
         if "error" in token_data:
             raise InvalidAuth("Unauthorized")
-        self.token = Tokens(token_data["access_token"], token_data.get("token_type", ""), token_data.get("expires_in", 0))
+        self.token = Tokens(
+            token_data["access_token"],
+            token_data.get("token_type", ""),
+            token_data.get("expires_in", 0),
+        )
 
     async def _get(self, path: str) -> Union[dict, list]:
         session = async_get_clientsession(self.hass)
@@ -71,3 +82,18 @@ class KsemClient:
     async def get_device_info(self) -> dict:
         _LOGGER.info("Hole Geräteinformationen")
         return await self._get("/api/device-settings")
+
+    async def get_evse_list(self):
+        """Liefert die Liste aller Wallboxen (EVSE) mit UUID etc."""
+        _LOGGER.info("Hole Wallboxen-Liste")
+        return await self._get("/api/e-mobility/evselist")
+
+    async def get_evse_details(self, evse_id):
+        """Liefert Geräte-Details einer Wallbox."""
+        _LOGGER.info("Hole Wallbox-Details für ID %s", evse_id)
+        return await self._get("/api/evse-kostal/evse/" + evse_id + "/details")
+
+    async def get_evse_state(self):
+        """Liefert den aktuellen Status (z. B. charging) einer Wallbox."""
+        _LOGGER.info("Hole Wallbox-Status")
+        return await self._get("/api/e-mobility/state")

@@ -266,8 +266,8 @@
     ```json
     {
       "<ev_connection_id>": {
-        "min_current": 0,            // minimaler Stromwert
-        "max_current": 0,            // maximaler Stromwert
+        "min_current": 0,            // minimaler Stromwert in mA
+        "max_current": 0,            // maximaler Stromwertin mA
         "phases_used": {
           "total": false,            // alle Phasen genutzt
           "l1": false,               // Phase L1 genutzt
@@ -368,16 +368,16 @@
     ```json
     {
       "EvChargingPower": {
-        "total": 0,  // in W
-        "l1": 0,     // in W
-        "l2": 0,     // in W
-        "l3": 0      // in W
+        "total": 0,  // in mW
+        "l1": 0,     // in mW
+        "l2": 0,     // in mW
+        "l3": 0      // in mW
       },
       "CurtailmentSetpoint": {
-        "total": 0,  // in W
-        "l1": 0,     // in W
-        "l2": 0,     // in W
-        "l3": 0      // in W
+        "total": 0,  // in mA
+        "l1": 0,     // in mA
+        "l2": 0,     // in mA
+        "l3": 0      // in mA
       },
       "OverloadProtectionActive": true,  // boolean
       "GridPowerLimit": {
