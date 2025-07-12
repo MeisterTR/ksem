@@ -1,7 +1,6 @@
 # Ksem API Dokumentation
 
-> Diese Doku enthält alle HTTP-/WebSocket-Endpunkte der Ksem-Komponente aus deinen HAR-Dateien (ohne Frontend/Assets).
-
+> Diese Doku enthält alle HTTP-/WebSocket-Endpunkte der Ksem-Komponente
 ---
 
 ## Authentifizierung & Benutzer
@@ -34,486 +33,402 @@
 
 ## Api Abfragen
 
-
-
-
-
-
-
-
-
-
-### Benutzerinfo
-
-- **Methode:** GET
-- **Pfad:** `/api/user/info`
+## Geräteeinstellungen
+- Kurzbeschreibung: Abfrage der aktuellen Geräteeinstellungen inklusive Netzwerk- und Firmware-Informationen.  
+- **Methode:** GET  
+- **Pfad:** `/api/device-settings`  
 - **Header:**  
-    `Authorization: Bearer <token>`
-- **Response:**
+    `Authorization: Bearer <token>`  
+- **Response:**  
     ```json
     {
-      "user": "admin",
-      "roles": ["admin", "user"],
-      "last_login": "2024-07-10T06:30:01Z"
+      "Mac": "AA:BB:CC:DD:EE:FF",
+      "Serial": "XXXXXXXX",
+      "ProductName": "KOSTAL Smart Energy Meter",
+      "DeviceType": "hw0100",
+      "FirmwareVersion": "2.6.2",
+      "hostname": "DEVICE_HOST",
+      "network": {
+        "ip": "XXX.XXX.XXX.XXX",
+        "mask": "255.255.255.0",
+        "gateway": "XXX.XXX.XXX.XXX",
+        "dns": [
+          "XXX.XXX.XXX.XXX"
+        ]
+      }
     }
     ```
 
----
-
-### Passwort ändern
-
-- **Methode:** POST
-- **Pfad:** `/api/user/change_password`
+## Geräteeinstellungen Gerätestatus
+- Kurzbeschreibung: Abfrage des aktuellen Gerätestatus innerhalb der Geräteeinstellungen.  
+- **Methode:** GET  
+- **Pfad:** `/api/device-settings/devicestatus`  
 - **Header:**  
-    `Authorization: Bearer <token>`
-- **Request:**
+    `Authorization: Bearer <token>`  
+- **Response:**  
     ```json
     {
-      "old_password": "alt",
-      "new_password": "neu"
+      "status": "idle"
     }
     ```
-- **Response:**
+
+
+## Geräteeinstellungen Geräteauslastung
+- Kurzbeschreibung: Abfrage der aktuellen Systemauslastungs- und Speicherstatistiken des Geräts.  
+- **Methode:** GET  
+- **Pfad:** `/api/device-settings/deviceusage`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
     ```json
-    { "result": "ok" }
+    {
+      "CpuLoad": 59,             // in %
+      "CpuTemp": 73,             // in °C
+      "RamFree": 138064,         // in KB
+      "RamTotal": 248432,        // in KB
+      "FlashAppFree": 231806976, // in Bytes
+      "FlashAppTotal": 249469952,// in Bytes
+      "FlashDataFree": 1207975936,// in Bytes
+      "FlashDataTotal": 1300037632// in Bytes
+    }
+    ```  
+
+## Geräteeinstellungen Lokale Zeit
+- Kurzbeschreibung: Abfrage der aktuellen lokalen Zeit des Geräts und NTP-Synchronisationsstatus.  
+- **Methode:** GET  
+- **Pfad:** `/api/device-settings/local-time`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
+    ```json
+    {
+      "time": 1752270150.8175027, // in Sekunden seit Unix-Epoche
+      "ntp_synced": true          // boolean, NTP-Synchronisation erfolgreich
+    }
     ```
 
----
-## Wallbox & E-Mobility (evse-kostal & e-mobility)
+## Geräteeinstellungen Netzwerk
+- Kurzbeschreibung: Abfrage des Netzwerkmodus, Hostnamen und UPnP-Status des Geräts.  
+- **Methode:** GET  
+- **Pfad:** `/api/device-settings/network`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
+    ```json
+    {
+      "mode": "dhcp",
+      "hostname": "DEVICE_HOSTNAME",
+      "upnpavailable": true,
+      "upnpstatus": true
+    }
+    ```  
 
-### Wallbox-Liste abrufen
 
-- **Methode:** GET
-- **Pfad:** `/api/e-mobility/wallbox/list`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
+## Geräteeinstellungen Serielle Schnittstellen
+- Kurzbeschreibung: Abfrage der konfigurierten seriellen Schnittstellen und zugewiesenen Anwendungen.  
+- **Methode:** GET  
+- **Pfad:** `/api/device-settings/serial-interfaces`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
     ```json
     [
       {
-        "id": "0b6bef8f-c578-4ab3-9ce2-11111111",
-        "name": "Wallbox Garage",
-        "model": "KSEM-EVSE-22",
-        "state": "ready"
-      }
-      // ggf. weitere Wallboxen
-    ]
-    ```
-
----
-
-### Wallbox-Details abrufen
-
-- **Methode:** GET
-- **Pfad:** `/api/e-mobility/wallbox/details/{wallbox_id}`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    {
-      "id": "0b6bef8f-c578-4ab3-9ce2-a054111111",
-      "name": "Wallbox Garage",
-      "model": "KSEM-EVSE-22",
-      "state": "ready",
-      "plug": true,
-      "charging": false,
-      "error": null,
-      "max_current": 16,
-      "actual_current": 0,
-      "mode": "manual",
-      "rfid": null,
-      "cable_locked": true,
-      "temperature": 32.5,
-      "firmware": "1.2.3",
-      "last_session": {
-        "start": "2024-07-10T14:32:11Z",
-        "stop": "2024-07-10T15:02:55Z",
-        "energy": 7.2,
-        "charged_by": "RFID123456"
+        "name": "APP2",
+        "app": "evse-kostal"
       },
-      "sessions": [
-        {
-          "start": "2024-07-09T17:15:20Z",
-          "stop": "2024-07-09T18:00:10Z",
-          "energy": 10.5,
-          "charged_by": "RFID123456"
+      {
+        "name": "APP1",
+        "app": "modbus"
+      }
+    ]
+    ```  
+
+## Geräteeinstellungen SMTP Konfiguration
+- Kurzbeschreibung: Abfrage der aktuellen SMTP-Einstellungen des Geräts.  
+- **Methode:** GET  
+- **Pfad:** `/api/device-settings/smtp/config`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
+    ```json
+    {
+      "recipient": "",
+      "server": "",
+      "port": 0,
+      "tls": false,
+      "authentication": false,
+      "username": "",
+      "password": ""
+    }
+    ```  
+
+## Geräteeinstellungen Zeitkonfiguration
+- Kurzbeschreibung: Abfrage der aktuellen Zeit-, NTP- und Zeitzoneneinstellungen des Geräts.  
+- **Methode:** GET  
+- **Pfad:** `/api/device-settings/time/config`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
+    ```json
+    {
+      "time": null,
+      "ntp": {
+        "enable": true
+      },
+      "timezone": "Europe/Berlin",
+      "invalid": false
+    }
+    ```
+
+## E-Mobility Lade-Modus Konfiguration
+- Kurzbeschreibung: Konfiguration des Lade-Modus und zugehöriger Quotenparameter für das E-Mobility-System.  
+- **Methode:** PUT  
+- **Pfad:** `/api/e-mobility/config/chargemode`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Request Body:**  
+    ```json
+    {
+      "mode": "hybrid",                      // "grid" | "pv" | "hybrid" | "lock"
+      "mincharginpowerquota": 100,           // in %, minimale Ladeleistung (Hybrid-Modus)
+      "minpvpowerquota": 30,                 // in %, minimale PV-Leistung (Hybrid-Modus)
+      "lastminchargingpowerquota": 100,      // in %, zuletzt verwendete Ladeleistung
+      "lastminpvpowerquota": 30,             // in %, zuletzt verwendete PV-Leistung
+      "controlledby": 0                      // 0 = intern gesteuert, 1 = extern gesteuert
+    }
+    ```  
+- **Response:**  
+    HTTP 204 No Content  
+
+## E-Mobility Überlastschutz Konfiguration
+- Kurzbeschreibung: Abfrage der aktuellen Überlastschutz-Konfiguration des E-Mobility-Systems.  
+- **Methode:** GET  
+- **Pfad:** `/api/e-mobility/config/overloadprotection`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
+    ```json
+    {
+      "grid_type": 3,                  // 1 = Einphasen-Netz, 3 = Dreiphasen-Netz
+      "main_fuse": [
+        63000,                         // in mA pro Phase
+        63000,
+        63000
+      ],
+      "deactivate_frontend_cfg": true, // boolean, Frontend-Konfiguration deaktiviert
+      "inconsistent_cfg": false        // boolean, Konfigurationskonsistenz in Ordnung
+    }
+    ```
+## E-Mobility Phasenumschaltung
+- Kurzbeschreibung: Abfrage und Konfiguration des Phasenumschaltungsmodus im E-Mobility-System.  
+- **Pfad:** `/api/e-mobility/config/phaseswitching`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Methoden:**
+  - **GET**
+    - **Response:**
+      ```json
+      {
+        "phase_usage": 0 // 0 = Standard 3 Phasen, 1 = Eine Phase, 2 = Automatisch
+      }
+      ```
+  - **PUT**
+    - **Request Body:**
+      ```json
+      {
+        "phase_usage": 2 // 0 = Standard 3 Phasen, 1 = Eine Phase, 2 = Automatisch
+      }
+      ```
+    - **Response:**  
+      HTTP 200 OK  
+
+## E-Mobility Probing-Parameter
+- Kurzbeschreibung: Abfrage der minimalen Step-Index-Konfiguration für die Probing-Parameter des E-Mobility-Systems.  
+- **Methode:** GET  
+- **Pfad:** `/api/e-mobility/config/probingparameters`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
+    ```json
+    {
+      "min_step_index": 0  // integer, minimaler Schrittindex für Probing-Parameter
+    }
+    ```  
+
+## E-Mobility EV-Parameterliste
+- Kurzbeschreibung: Abfrage der aktuellen Parameter für alle angeschlossenen E-Fahrzeuge (Strombegrenzung, Phasennutzung, Probing-Status).  
+- **Methode:** GET  
+- **Pfad:** `/api/e-mobility/evparameterlist`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
+    ```json
+    {
+      "<ev_connection_id>": {
+        "min_current": 0,            // minimaler Stromwert
+        "max_current": 0,            // maximaler Stromwert
+        "phases_used": {
+          "total": false,            // alle Phasen genutzt
+          "l1": false,               // Phase L1 genutzt
+          "l2": false,               // Phase L2 genutzt
+          "l3": false                // Phase L3 genutzt
+        },
+        "probing_successful": false  // Probing erfolgreich
+      }
+    }
+    ```  
+## E-Mobility EVSE-Limit
+- Kurzbeschreibung: Abfrage des aktuellen Limits für die Anzahl aktiver EVSE-Anschlüsse.  
+- **Methode:** GET  
+- **Pfad:** `/api/e-mobility/evselimit`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
+    ```json
+    {
+      "limit": 1  // integer, maximales Limit an gleichzeitig aktiven EVSE-Anschlüssen
+    }
+    ```  
+
+## E-Mobility Phasenutzung
+- Kurzbeschreibung: Konfiguration des Phasenumschaltungsmodus im E-Mobility-System.  
+- **Methode:** PUT  
+- **Pfad:** `/api/e-mobility/phaseusage`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Request Body:**  
+    ```json
+    {
+      "phase_usage": 2 // 0 = Standard 3 Phasen, 1 = Eine Phase, 2 = Automatisch
+    }
+    ```  
+- **Response:**  
+    HTTP 200 OK  
+## E-Mobility EVSE-Liste
+- Kurzbeschreibung: Abfrage der registrierten EVSE-Anschlüsse mit deren Konfiguration und Status.  
+- **Methode:** GET  
+- **Pfad:** `/api/e-mobility/evselist`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
+    ```json
+    [
+      {
+        "label": "Wallbox",
+        "uuid": "<WALLBOX_ID>",      // anonymisiert
+        "parent_uuid": "<WALLBOX_ID>", // anonymisiert, identisch zur uuid
+        "topic": "gdr/local/config/kostal/evse",
+        "ip": "",
+        "manufacturer": "kostal",
+        "slave_addr": "100",
+        "modbus_interface": "APP2",
+        "product": "",
+        "number_of_outlets": "1",
+        "outlet": "0",
+        "state": "stateConnected",
+        "model": "ac-3_7_11",
+        "updateable": true,
+        "supports_phase_switching": true,
+        "phase_usage_state": 3,
+        "phase_usage_result": 0,
+        "eebus": {
+          "i_max": 0,
+          "i_min": 0,
+          "phases_used": 0
         }
-      ]
-    }
-    ```
-
----
-
-### Wallbox-Status abrufen
-
-- **Methode:** GET
-- **Pfad:** `/api/e-mobility/wallbox/state/{wallbox_id}`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:** *(kann ähnlich Details sein, mit Schwerpunkt auf Status)*
-    ```json
-    {
-      "state": "charging",
-      "plug": true,
-      "charging": true,
-      "actual_current": 16,
-      "power": 3600,
-      "error": null
-    }
-    ```
-
----
-
-### Wallbox-Historie
-
-- **Methode:** GET
-- **Pfad:** `/api/e-mobility/wallbox/history/{wallbox_id}?limit=10`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    [
-      {
-        "start": "2024-07-10T14:32:11Z",
-        "stop": "2024-07-10T15:02:55Z",
-        "energy": 7.2,
-        "charged_by": "RFID123456"
       }
-      // ...
     ]
-    ```
+    ```  
 
----
-
-### Wallbox-Einstellungen lesen/schreiben
-
-- **Methode:** GET / PUT
-- **Pfad:** `/api/e-mobility/wallbox/settings/{wallbox_id}`
-- **Header:** `Authorization: Bearer <token>`
-- **GET Response:**
-    ```json
-    {
-      "max_current": 16,
-      "min_current": 6,
-      "phases": 3,
-      "charging_modes": ["manual", "auto", "smart"],
-      "default_mode": "auto",
-      "cable_locked": true,
-      "allowed_rfids": ["RFID123456"]
-    }
-    ```
-- **PUT Request:**
-    ```json
-    { "default_mode": "smart" }
-    ```
-- **PUT Response:**
-    ```json
-    { "result": "ok" }
-    ```
-
----
-
-### Wallbox Steuerbefehl (Aktion: Start, Stop, Lock, Unlock, Reset)
-
-- **Methode:** POST
-- **Pfad:** `/api/e-mobility/wallbox/command/{wallbox_id}`
-- **Header:** `Authorization: Bearer <token>`
-- **Request:**
-    ```json
-    { "action": "start" }
-    ```
-- **Response:**
-    ```json
-    { "result": "ok" }
-    ```
-
----
-
-### Wallbox Firmware-Info
-
-- **Methode:** GET
-- **Pfad:** `/api/e-mobility/wallbox/firmware/{wallbox_id}`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    {
-      "version": "1.2.3",
-      "update_available": false,
-      "release_notes": ""
-    }
-    ```
-
----
-
-### Wallbox Diagnose
-
-- **Methode:** GET
-- **Pfad:** `/api/e-mobility/wallbox/diagnose/{wallbox_id}`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:** *(vereinfachtes Beispiel)*
-    ```json
-    {
-      "diagnostics": [
-        {"name": "Temperature Sensor", "status": "ok"},
-        {"name": "Contactor", "status": "ok"}
-      ]
-    }
-    ```
-
----
-
-### Wallbox Benachrichtigungen
-
-- **Methode:** GET
-- **Pfad:** `/api/e-mobility/wallbox/notifications/{wallbox_id}`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
+## E-Mobility Probing Aktuelle Stromschritte
+- Kurzbeschreibung: Abfrage der verfügbaren Strom-Schritte für das Probing-Verfahren.  
+- **Methode:** GET  
+- **Pfad:** `/api/e-mobility/probing/currentsteps`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
     ```json
     [
-      {"timestamp": "2024-07-10T12:00:00Z", "text": "Ladekabel getrennt"}
+      6000,   // in mA
+      8000,   // in mA
+      10000,  // in mA
+      13000,  // in mA
+      16000   // in mA
     ]
-    ```
+    ```  
 
----
-
-### Wallbox Fehlerliste
-
-- **Methode:** GET
-- **Pfad:** `/api/e-mobility/wallbox/errors/{wallbox_id}`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    [
-      { "timestamp": "2024-07-09T18:02:00Z", "code": 102, "text": "Residual current error" }
-    ]
-    ```
-
----
-
-### Wallbox Statistik
-
-- **Methode:** GET
-- **Pfad:** `/api/e-mobility/wallbox/statistics/{wallbox_id}`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
+## E-Mobility Zustand
+- Kurzbeschreibung: Abfrage des aktuellen Betriebszustands des E-Mobility-Systems.  
+- **Methode:** GET  
+- **Pfad:** `/api/e-mobility/state`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
     ```json
     {
-      "sessions": 245,
-      "energy_total": 2350.4,
-      "max_power": 11500,
-      "total_duration": 162000 // Sekunden
-    }
-    ```
-
----
-
-### Wallbox Phasenstatus
-
-- **Methode:** GET
-- **Pfad:** `/api/evse-kostal/evse/{evse_id}/phases`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    {
-      "phases": [
-        { "phase": 1, "current": 16, "voltage": 228 },
-        { "phase": 2, "current": 0,  "voltage": 0 },
-        { "phase": 3, "current": 16, "voltage": 229 }
-      ]
-    }
-    ```
-
----
-
-### (Weitere, identische Endpunkte – z. B. /evse-kostal/evse/{evse_id}/details, /settings, /setpoints, /commands, /sessions – siehe oben, identischer Aufbau wie e-mobility.)
-
----
-## Smartmeter
-
-### Smartmeter-Liste abrufen
-
-- **Methode:** GET
-- **Pfad:** `/api/smartmeter/list`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    [
-      {
-        "id": "KSEM-001-SM01",
-        "name": "Smartmeter Keller",
-        "model": "KSEM-SM1"
+      "EvChargingPower": {
+        "total": 0,  // in W
+        "l1": 0,     // in W
+        "l2": 0,     // in W
+        "l3": 0      // in W
+      },
+      "CurtailmentSetpoint": {
+        "total": 0,  // in W
+        "l1": 0,     // in W
+        "l2": 0,     // in W
+        "l3": 0      // in W
+      },
+      "OverloadProtectionActive": true,  // boolean
+      "GridPowerLimit": {
+        "Active": false,  // boolean
+        "Power": 0        // in W
+      },
+      "PVPowerLimit": {
+        "Active": false,  // boolean
+        "Power": 0        // in W
       }
-      // ggf. weitere Smartmeter
-    ]
-    ```
+    }
+    ```  
 
----
-
-### Smartmeter-Status abrufen
-
-- **Methode:** GET
-- **Pfad:** `/api/smartmeter/KSEM-001-SM01/status`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
+## EVSE-Kostal Gerät
+- Kurzbeschreibung: Abfrage des Bindungsstatus der EVSE-Kostal Schnittstellen.  
+- **Methode:** GET  
+- **Pfad:** `/api/evse-kostal/device`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
     ```json
     {
-      "id": "KSEM-001-SM01",
-      "name": "KSEM Smartmeter",
-      "model": "KSEM-SM1",
-      "power": 327,
-      "energy_total": 3456.2,
-      "energy_export": 203.4,
-      "energy_import": 3252.8,
-      "voltage": 229,
-      "current": 1.7,
-      "frequency": 50.02,
-      "timestamp": "2024-07-10T15:05:34Z"
+      "APP2": "bound"
     }
-    ```
+    ```  
 
----
-
-### Smartmeter-Einstellungen lesen/schreiben
-
-- **Methode:** GET / PUT
-- **Pfad:** `/api/smartmeter/KSEM-001-SM01/settings`
-- **Header:** `Authorization: Bearer <token>`
-- **GET Response:**
+## EVSE-Kostal EVSE Details
+- Kurzbeschreibung: Abfrage der Geräte­details der einzelnen Wallbox.  
+- **Methode:** GET  
+- **Pfad:** `/api/evse-kostal/evse/<WALLBOX_ID>/details`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
     ```json
     {
-      "measurement_interval": 10,
-      "voltage_range": [200, 240],
-      "phases": 3,
-      "location": "Keller"
+      "serial": "<SERIAL_NUMBER>",               // Seriennummer anonymisiert
+      "model": "ac-3_7_11",
+      "version": "FW: 2023.21.11024-20; COM: 1.03",
+      "hardware": "0003",
+      "max_install_current": 63000,               // in mA
+      "updateable": true,
+      "phase_switching_option": 2,                // 3 und 1 Phase
+      "supports_phase_switching": true
     }
-    ```
-- **PUT Request:**
-    ```json
-    { "measurement_interval": 5 }
-    ```
-- **PUT Response:**
-    ```json
-    { "result": "ok" }
-    ```
+    ```  
 
----
 
-### Smartmeter-Log abrufen
 
-- **Methode:** GET
-- **Pfad:** `/api/smartmeter/KSEM-001-SM01/log`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    [
-      { "timestamp": "2024-07-09T18:05:00Z", "event": "reset", "user": "admin" }
-    ]
-    ```
 
----
-## System & Device Endpunkte
 
-### System-/API-Version abrufen
 
-- **Methode:** GET
-- **Pfad:** `/api/version`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    {
-      "version": "2.1.0",
-      "api_version": "v1"
-    }
-    ```
-
----
-
-### Geräteinfo abrufen
-
-- **Methode:** GET
-- **Pfad:** `/api/device/info`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    {
-      "device_id": "KSEM-001-MAIN",
-      "model": "KSEM-Core",
-      "serial": "KSEM-2024-0001",
-      "location": "Hausanschlussraum",
-      "uptime": 345632,
-      "firmware": "2.1.0"
-    }
-    ```
-
----
-
-### Gerätestatus/Health abrufen
-
-- **Methode:** GET
-- **Pfad:** `/api/device/health`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    {
-      "device_id": "KSEM-001-MAIN",
-      "status": "ok",
-      "last_restart": "2024-07-10T00:02:01Z",
-      "free_memory": 30238,
-      "cpu_load": 0.32,
-      "temperature": 41.2
-    }
-    ```
-
----
-
-### Gerät neustarten
-
-- **Methode:** POST
-- **Pfad:** `/api/device/reboot`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    { "result": "ok", "rebooting": true }
-    ```
-
----
-
-### System-Log abrufen
-
-- **Methode:** GET
-- **Pfad:** `/api/log/system`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    [
-      { "timestamp": "2024-07-10T09:11:00Z", "level": "info", "message": "System start" },
-      { "timestamp": "2024-07-10T10:32:12Z", "level": "warn", "message": "Low memory" }
-    ]
-    ```
-
----
-
-### Geräte-Log abrufen
-
-- **Methode:** GET
-- **Pfad:** `/api/log/device`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    [
-      { "timestamp": "2024-07-10T11:12:00Z", "level": "info", "message": "Wallbox charging started" }
-    ]
-    ```
-
----
-
-### System-Benachrichtigungen abrufen
-
-- **Methode:** GET
-- **Pfad:** `/api/notifications`
-- **Header:** `Authorization: Bearer <token>`
-- **Response:**
-    ```json
-    [
-      { "timestamp": "2024-07-10T12:00:00Z", "text": "Neue Firmware verfügbar" }
-    ]
-    ```
 
 ---
 ## WebSocket-Verbindung – Authentifizierung
