@@ -67,8 +67,53 @@ async def async_setup_entry(
         KsemWallboxModbusSensor(modbus, reg, wallbox_device_info)
         for reg in MODBUS_WALLBOX_REGISTERS
     ]
+    evse_power_entity = KsemEvseAvailablePowerSensor(wallbox, wallbox_device_info)
 
-    async_add_entities(smartmeter_entities + wallbox_entities + modbus_entities)
+    async_add_entities(
+        smartmeter_entities + wallbox_entities + modbus_entities + [evse_power_entity]
+    )
+
+
+class KsemEvseAvailablePowerSensor(CoordinatorEntity, SensorEntity):
+    def __init__(self, coordinator, device_info):
+        super().__init__(coordinator)
+        self._attr_name = "Verfügbare Ladeleistung"
+        self._attr_unique_id = "ksem_evse_available_power"
+        self._attr_native_unit_of_measurement = "W"
+        self._attr_device_info = device_info
+        self._attr_state_class = SensorStateClass.MEASUREMENT
+
+    @property
+    def native_value(self):
+        state = self.coordinator.data.get("evse_state", {})
+        try:
+            curtail = state.get("CurtailmentSetpoint", {})
+            total_ma = (
+                curtail.get("l1", 0) + curtail.get("l2", 0) + curtail.get("l3", 0)
+            )
+            return round((total_ma / 1000) * 230)
+        except Exception as e:
+            _LOGGER.warning("Fehler bei Umrechnung der Ladeleistung: %s", e)
+            return None
+
+    @property
+    def extra_state_attributes(self):
+        state = self.coordinator.data.get("evse_state", {})
+        attrs = {
+            "Curtailment_L2": state.get("CurtailmentSetpoint", {}).get("l2", 0),
+            "Curtailment_L3": state.get("CurtailmentSetpoint", {}).get("l3", 0),
+            "Curtailment_total": state.get("CurtailmentSetpoint", {}).get("total", 0),
+            "ChargingPower_L1": state.get("EvChargingPower", {}).get("l1", 0),
+            "ChargingPower_L2": state.get("EvChargingPower", {}).get("l2", 0),
+            "ChargingPower_L3": state.get("EvChargingPower", {}).get("l3", 0),
+            "ChargingPower_total": state.get("EvChargingPower", {}).get("total", 0),
+            "OverloadProtectionActive": state.get("OverloadProtectionActive"),
+            "GridPowerLimit": state.get("GridPowerLimit", {}).get("Power"),
+            "GridLimitActive": state.get("GridPowerLimit", {}).get("Active"),
+            "PVPowerLimit": state.get("PVPowerLimit", {}).get("Power"),
+            "PVLimitActive": state.get("PVPowerLimit", {}).get("Active"),
+        }
+        return attrs
 
 
 class KsemSmartmeterSensor(CoordinatorEntity, SensorEntity):

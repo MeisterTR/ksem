@@ -60,10 +60,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     err,
                 )
                 config = {}
+            try:
+                evse_state = await client.get_evse_state()
+            except Exception as err:
+                _LOGGER.warning("EVSE-Status konnte nicht geladen werden: %s", err)
+                evse_state = {}
             return {
                 "evse": result,
                 "phase_usage_state": phase_usage,
                 "energyflow_config": config,
+                "evse_state": evse_state,
             }
 
         except Exception as err:
