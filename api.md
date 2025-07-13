@@ -424,6 +424,42 @@
     }
     ```  
 
+## Kostal Energyflow Konfiguration
+- Kurzbeschreibung: Abfrage der aktuellen Energiefluss-Konfiguration des Kostal-Energieflussmoduls.  
+- **Methode:** GET  
+- **Pfad:** `/api/kostal-energyflow/configuration`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Response:**  
+    ```json
+    {
+      "enabled": false,                     // boolean, Energiefluss-Modul aktiviert
+      "selected_controller_type": "legacy", // string, gewählter Steuerungstyp
+      "powerreduction": {
+        "enabled": false,                   // boolean, Leistungsreduzierung aktiviert
+        "limit": 0,                         // integer, Reduktionsgrenze (W)
+        "interval": 1,                      // integer, Intervall zur Leistungsmessung (min)
+        "avg_interval": 35,                 // integer, Intervall zur Mittelwertbildung (min)
+        "avg_teridian": 15,                 // integer, Teridian-Intervall für Tagesmittel (min)
+        "maxpower": 0                       // integer, maximale Leistung nach Reduzierung (W)
+      },
+      "batteryusage": true,                 // boolean, Batterienutzung erlaubt
+      "version": 5                          // integer, Konfigurationsversion
+    }
+    ```
+
+## Kostal Batterie-Nutzung bei Solar Pure
+- Kurzbeschreibung: Aktivieren oder Deaktivieren der Batterienutzung im Solar Pure-Modus.  
+- **Methode:** PUT  
+- **Pfad:** `/api/kostal-energyflow/configuration/batteryusage`  
+- **Header:**  
+    `Authorization: Bearer <token>`  
+- **Request Body:**  
+    ```text
+    true  // oder false
+    ```  
+- **Response:**  
+    HTTP 204 No Content  
 
 
 

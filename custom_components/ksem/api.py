@@ -61,6 +61,30 @@ class KsemClient:
             token_data.get("expires_in", 0),
         )
 
+    async def _put(
+        self, path: str, data=None, json=None, headers=None, text_mode=False
+    ) -> Union[dict, None]:
+        session = async_get_clientsession(self.hass)
+        if not self.token or datetime.datetime.now() > self.token.expire_date:
+            await self._auth(session)
+        url = f"http://{self.host}{path}"
+        default_headers = bearer_header(self.token.access_token)
+        if headers:
+            default_headers.update(headers)
+
+        _LOGGER.debug("PUT %s - Data: %s", url, json or data)
+        resp = await session.put(url, headers=default_headers, data=data, json=json)
+        if resp.status in (401, 500):
+            _LOGGER.debug("Status %s, re-authenticating", resp.status)
+            await self._auth(session)
+            default_headers = bearer_header(self.token.access_token)
+            resp = await session.put(url, headers=default_headers, data=data, json=json)
+
+        if resp.status == 204:
+            return None
+        resp.raise_for_status()
+        return await (resp.text() if text_mode else resp.json())
+
     async def _get(self, path: str) -> Union[dict, list]:
         session = async_get_clientsession(self.hass)
         if not self.token or datetime.datetime.now() > self.token.expire_date:
@@ -142,10 +166,19 @@ class KsemClient:
         return await self._get("/api/e-mobility/config/phaseswitching")
 
     async def set_phase_switching(self, phase_usage: int):
-        session = async_get_clientsession(self.hass)
-        await self._auth(session)
-        url = f"http://{self.host}/api/e-mobility/config/phaseswitching"
-        headers = bearer_header(self.token.access_token)
-        payload = {"phase_usage": phase_usage}
-        resp = await session.put(url, headers=headers, json=payload)
-        resp.raise_for_status()
+        await self._put(
+            "/api/e-mobility/config/phaseswitching", json={"phase_usage": phase_usage}
+        )
+
+    async def get_energyflow_config(self):
+        _LOGGER.info("Hole Configdaten von Energiefluss")
+        return await self._get("/api/kostal-energyflow/configuration")
+
+    async def set_battery_usage(self, enabled: bool):
+        value = "true" if enabled else "false"
+        await self._put(
+            "/api/kostal-energyflow/configuration/batteryusage",
+            data=value,
+            headers={"Content-Type": "text/plain"},
+            text_mode=True,
+        )

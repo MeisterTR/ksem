@@ -11,7 +11,7 @@ from .api import KsemClient
 from .modbus_helper import ModbusWallboxClient
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor", "number", "select"]
+PLATFORMS = ["sensor", "number", "select", "switch"]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -52,10 +52,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     "Phasenumschaltung konnte nicht geladen werden: %s", err
                 )
                 phase_usage = 0
-
+            try:
+                config = await client.get_energyflow_config()
+            except Exception as err:
+                _LOGGER.warning(
+                    "Energiefluss-Konfiguration konnte nicht geladen werdSen: %s",
+                    err,
+                )
+                config = {}
             return {
                 "evse": result,
                 "phase_usage_state": phase_usage,
+                "energyflow_config": config,
             }
 
         except Exception as err:
