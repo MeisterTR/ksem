@@ -4,7 +4,11 @@ from typing import Union
 from aiohttp import ClientResponse
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .helper import bearer_header
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+from homeassistant.components.sensor import (
+    SensorEntity,
+    SensorDeviceClass,
+    SensorStateClass,
+)
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 
@@ -97,3 +101,39 @@ class KsemClient:
         """Liefert den aktuellen Status (z. B. charging) einer Wallbox."""
         _LOGGER.info("Hole Wallbox-Status")
         return await self._get("/api/e-mobility/state")
+
+    async def set_charge_mode(
+        self,
+        mode: str | None = None,
+        mincharginpowerquota: int | None = None,
+        minpvpowerquota: int | None = None,
+        entry_id=None,
+    ):
+        session = async_get_clientsession(self.hass)
+        await self._auth(session)
+        url = f"http://{self.host}/api/e-mobility/config/chargemode"
+
+        # Hole aktuelle Werte aus dem WebSocket-Cache
+        cache = (
+            self.hass.data.get("ksem", {}).get(entry_id, {}).get("last_chargemode", {})
+        )
+
+        payload = {
+            "mode": mode or cache.get("mode", "lock"),
+            "mincharginpowerquota": mincharginpowerquota
+            if mincharginpowerquota is not None
+            else cache.get("mincharginpowerquota", 100),
+            "minpvpowerquota": minpvpowerquota
+            if minpvpowerquota is not None
+            else cache.get("minpvpowerquota", 30),
+        }
+
+        # Füge automatisch die letzten Werte und controlledby=0 hinzu
+        payload["lastminchargingpowerquota"] = payload["mincharginpowerquota"]
+        payload["lastminpvpowerquota"] = payload["minpvpowerquota"]
+        payload["controlledby"] = 0
+
+        headers = bearer_header(self.token.access_token)
+        _LOGGER.debug("PUT %s - Payload: %s", url, payload)
+        resp = await session.put(url, headers=headers, json=payload)
+        resp.raise_for_status()

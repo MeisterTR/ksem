@@ -1,0 +1,105 @@
+import asyncio
+import logging
+from homeassistant.components.select import SelectEntity
+from homeassistant.helpers.device_registry import DeviceInfo
+from .const import DOMAIN
+from aiohttp import ClientSession, WSMsgType
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+_LOGGER = logging.getLogger(__name__)
+
+MODE_MAP = {
+    "lock": "Lock Mode",
+    "grid": "Power Mode",
+    "pv": "Solar Pure Mode",
+    "hybrid": "Solar Plus Mode",
+}
+REVERSE_MODE_MAP = {v: k for k, v in MODE_MAP.items()}
+
+
+async def async_setup_entry(hass, entry, async_add_entities):
+    data = hass.data[DOMAIN][entry.entry_id]
+    client = data["client"]
+    token = client.token.access_token
+    device_info = data.get("wallbox_device_info")
+
+    entity = KsemChargeModeSelect(hass, entry.entry_id, client, token, device_info)
+    async_add_entities([entity])
+
+
+class KsemChargeModeSelect(SelectEntity):
+    def __init__(self, hass, entry_id, client, token, device_info):
+        self._entry_id = entry_id
+        self._client = client
+        self._token = token
+        self._attr_name = "Wallbox Charge Mode"
+        self._attr_unique_id = "ksem_charge_mode"
+        self._attr_options = list(MODE_MAP.values())
+        self._api_mode = None
+        self._attr_device_info = device_info
+        self._hass = hass
+        self._ws_task = hass.loop.create_task(self._listen_websocket())
+
+    @property
+    def current_option(self):
+        return MODE_MAP.get(self._api_mode)
+
+    async def async_select_option(self, option: str):
+        mode = REVERSE_MODE_MAP.get(option)
+        if mode:
+            await self._client.set_charge_mode(
+                mode=mode,
+                minpvpowerquota=None,
+                mincharginpowerquota=None,
+                entry_id=self._entry_id,
+            )
+            self._api_mode = mode
+            self.async_write_ha_state()
+
+    async def _listen_websocket(self):
+        url = f"ws://{self._client.host}/api/data-transfer/ws/json/json/local/config/e-mobility/chargemode"
+        session = async_get_clientsession(self._hass)
+        try:
+            async with session.ws_connect(
+                url, headers={"Authorization": f"Bearer {self._token}"}
+            ) as ws:
+                await ws.send_str(f"Bearer {self._token}")
+                async for msg in ws:
+                    if msg.type == WSMsgType.TEXT:
+                        try:
+                            import json
+
+                            data = json.loads(msg.data)
+                            if data.get("topic", "").endswith("chargemode"):
+                                msg_data = data.get("msg", {})
+                                mode = msg_data.get("mode")
+                                if mode != self._api_mode:
+                                    _LOGGER.debug("WebSocket Update: mode=%s", mode)
+                                    self._api_mode = mode
+                                    self.async_write_ha_state()
+
+                                # Live-Aktualisierung number.py
+                                quotas = self._hass.data[DOMAIN][self._entry_id].get(
+                                    "quota_entities", {}
+                                )
+                                if "minpv" in quotas and "minpvpowerquota" in msg_data:
+                                    quotas["minpv"].update_value(
+                                        msg_data["minpvpowerquota"]
+                                    )
+                                if (
+                                    "mincharge" in quotas
+                                    and "mincharginpowerquota" in msg_data
+                                ):
+                                    quotas["mincharge"].update_value(
+                                        msg_data["mincharginpowerquota"]
+                                    )
+
+                                # Cache
+                                self._hass.data[DOMAIN][self._entry_id][
+                                    "last_chargemode"
+                                ] = msg_data
+
+                        except Exception as e:
+                            _LOGGER.warning("WebSocket JSON decode error: %s", e)
+        except Exception as err:
+            _LOGGER.error("WebSocket connection failed: %s", err)

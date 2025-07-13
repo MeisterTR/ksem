@@ -1,7 +1,7 @@
 {
   "domain": "ksem",
   "name": "KSEM Wallbox",
-  "version": "0.0.1",
+  "version": "0.2.1",
   "documentation": "https://github.com/MeisterTR/ksem",
   "issue_tracker": "https://github.com/MeisterTR/ksem/issues",
   "dependencies": [],

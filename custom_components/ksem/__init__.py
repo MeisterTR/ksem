@@ -11,7 +11,7 @@ from .api import KsemClient
 from .modbus_helper import ModbusWallboxClient
 
 _LOGGER = logging.getLogger(__name__)
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "number", "select"]
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
