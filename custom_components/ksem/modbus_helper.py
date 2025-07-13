@@ -26,7 +26,7 @@ MODBUS_WALLBOX_REGISTERS = [
         "name": "Enector_L1",
         "address": 49218,
         "unit": "A",
-        "device_class": "power",
+        "device_class": "current",
         "state_class": "measurement",
         "scale": 0.001,
         "type": "uint32",

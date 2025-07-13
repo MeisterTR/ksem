@@ -5,6 +5,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from .const import DOMAIN
 from aiohttp import ClientSession, WSMsgType
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,15 +17,50 @@ MODE_MAP = {
 }
 REVERSE_MODE_MAP = {v: k for k, v in MODE_MAP.items()}
 
+PHASE_MAP = {0: "3 Phasen", 1: "1 Phase", 2: "Automatisch"}
+REVERSE_PHASE_MAP = {v: k for k, v in PHASE_MAP.items()}
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     data = hass.data[DOMAIN][entry.entry_id]
     client = data["client"]
     token = client.token.access_token
     device_info = data.get("wallbox_device_info")
+    coordinator = data["wallbox_coordinator"]
 
-    entity = KsemChargeModeSelect(hass, entry.entry_id, client, token, device_info)
-    async_add_entities([entity])
+    mode_entity = KsemChargeModeSelect(hass, entry.entry_id, client, token, device_info)
+
+    phase_entity = KsemPhaseSwitchSelect(
+        coordinator=coordinator,
+        client=client,
+        device_info=device_info,
+    )
+
+    async_add_entities([mode_entity, phase_entity])
+
+
+class KsemPhaseSwitchSelect(CoordinatorEntity, SelectEntity):
+    def __init__(self, coordinator, client, device_info: DeviceInfo):
+        super().__init__(coordinator)
+        self._client = client
+        self._attr_name = "Phasenumschaltung"
+        self._attr_unique_id = "ksem_phase_switch"
+        self._attr_options = list(PHASE_MAP.values())
+        self._attr_device_info = device_info
+
+    @property
+    def current_option(self):
+        val = self.coordinator.data.get("phase_usage_state", 0)
+        return PHASE_MAP.get(val)
+
+    async def async_select_option(self, option: str):
+        if option not in REVERSE_PHASE_MAP:
+            _LOGGER.warning("Ungültige Auswahl: %s", option)
+            return
+
+        new_value = REVERSE_PHASE_MAP[option]
+        await self._client.set_phase_switching(new_value)
+        await self.coordinator.async_request_refresh()
 
 
 class KsemChargeModeSelect(SelectEntity):

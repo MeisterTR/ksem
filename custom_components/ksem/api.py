@@ -137,3 +137,15 @@ class KsemClient:
         _LOGGER.debug("PUT %s - Payload: %s", url, payload)
         resp = await session.put(url, headers=headers, json=payload)
         resp.raise_for_status()
+
+    async def get_phase_switching(self):
+        return await self._get("/api/e-mobility/config/phaseswitching")
+
+    async def set_phase_switching(self, phase_usage: int):
+        session = async_get_clientsession(self.hass)
+        await self._auth(session)
+        url = f"http://{self.host}/api/e-mobility/config/phaseswitching"
+        headers = bearer_header(self.token.access_token)
+        payload = {"phase_usage": phase_usage}
+        resp = await session.put(url, headers=headers, json=payload)
+        resp.raise_for_status()

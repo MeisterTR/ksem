@@ -35,16 +35,33 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def _update_wallbox():
         try:
-            wallboxes = await client.get_evse_list()
-            detailed = []
-            for wb in wallboxes:
-                uuid = wb.get("uuid")
+            evse_list = await client.get_evse_list()
+            result = []
+
+            for evse in evse_list:
+                uuid = evse["uuid"]
                 details = await client.get_evse_details(uuid)
-                wb["details"] = details
-                detailed.append(wb)
-            return detailed
+                evse.update(details)
+                result.append(evse)
+
+            try:
+                res = await client.get_phase_switching()
+                phase_usage = res.get("phase_usage", 0)
+            except Exception as err:
+                _LOGGER.warning(
+                    "Phasenumschaltung konnte nicht geladen werden: %s", err
+                )
+                phase_usage = 0
+
+            return {
+                "evse": result,
+                "phase_usage_state": phase_usage,
+            }
+
         except Exception as err:
-            raise UpdateFailed(f"Wallbox-Fehler: {err}")
+            raise UpdateFailed(
+                f"Wallbox-Daten konnten nicht geladen werden: {err}"
+            ) from err
 
     async def _update_modbus():
         try:

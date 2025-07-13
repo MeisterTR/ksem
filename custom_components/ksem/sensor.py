@@ -38,7 +38,7 @@ async def async_setup_entry(
 
     wallbox_entities = []
     wallbox_device_info = None
-    for wb in wallbox.data:
+    for wb in wallbox.data.get("evse", []):
         uuid = wb.get("uuid")
         label = wb.get("label", "Wallbox")
         model = wb.get("model", "")
