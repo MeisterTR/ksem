@@ -1,32 +1,56 @@
-# KSEM Wallbox Integration for Home Assistant
+# KSEM Smartmeter Integration for Home Assistant
 
-![WIP](https://img.shields.io/badge/status-WORK_IN_PROGRESS-yellow)
-![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Compatible-blue)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://hacs.xyz)
+[![License](https://img.shields.io/github/license/MeisterTR/ksem?style=flat-square)](https://github.com/MeisterTR/ksem/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/MeisterTR/ksem?style=flat-square)](https://github.com/MeisterTR/ksem/releases)
 
-⚠️ **Diese Integration befindet sich aktuell in aktiver Entwicklung. Sie ist noch nicht für den produktiven Einsatz gedacht.**
-
----
-
-## 🔧 Ziel
-
-Diese benutzerdefinierte Home Assistant Komponente soll eine lokale Anbindung an die KSEM-Wallbox ermöglichen. Ziel ist die Integration verschiedener Sensoren, Zustände und Steuerfunktionen via REST und WebSocket.
+⚠️ **This integration is currently under active development and not yet production-ready. Use at your own risk.**
 
 ---
 
-## 🚀 Features (geplant)
+## 🔧 Purpose
 
-- [x] Lokale Authentifizierung
-- [x] REST-API Kommunikation
-- [ ] WebSocket Live-Daten
-- [ ] Sensor-Entities (Ladezustand, Ladeleistung, etc.)
-- [ ] Steuerung (Lademodus, Start/Stop, etc.)
-- [ ] Konfigurations-Flow mit UI
-- [ ] Unterstützung für Energy Dashboard
+This custom Home Assistant integration provides a local connection to the **KOSTAL Smart Energy Meter (KSEM)** and its attached wallbox(es). It allows real-time monitoring and control via **local REST API** and **WebSocket stream** — no cloud required.
 
 ---
 
-## 📁 Installation (noch nicht empfohlen)
+## 🚀 Features
 
-```bash
-# in deinem Home Assistant config Verzeichnis:
-custom_components/ksem/
+- ✅ Local authentication with password
+- ✅ REST API communication for configuration and status
+- ✅ WebSocket subscription for live charging data
+- ✅ Sensor entities:
+  - Charging state, phases, current, voltage, power
+  - Wallbox device info
+  - Energy and load data
+- ✅ Control entities:
+  - Charging mode (`net`, `pv`, `hybrid`, `locked`)
+  - Phase switching (`1-phase`, `3-phase`, `auto`)
+  - Battery usage toggle
+  - Minimum PV / charging power quota (adjustable)
+- 🔄 Automatic updates from WebSocket for live control values
+- 🔜 Future: Energy dashboard support
+
+---
+
+## 📁 Installation
+
+### 📦 HACS (custom repository)
+
+> Recommended way to install and keep the component up to date.
+
+1. Open **HACS** in Home Assistant.
+2. Go to **Integrations → ⋮ Menu → Custom repositories**.
+3. Add this repository:  
+   `https://github.com/MeisterTR/ksem`  
+   Category: **Integration**
+4. After adding, search for **KSEM** and install it.
+5. Restart Home Assistant.
+6. Go to **Settings → Devices & Services → + Add Integration**, search for **KSEM**, and follow the setup wizard.
+
+### 🧰 Manual Installation (alternative)
+
+1. Download this repository as ZIP or clone it.
+2. Copy the folder `custom_components/ksem/` into your Home Assistant config directory:
+   ```bash
+   /config/custom_components/ksem/
