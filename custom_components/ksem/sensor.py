@@ -5,7 +5,9 @@ from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 from .const import DOMAIN
+from homeassistant.helpers.entity import EntityCategory
 from .modbus_helper import MODBUS_WALLBOX_REGISTERS
+from .modbus_obis_map import OBIS_SENSOR_DEFINITIONS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +29,8 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     smart = data["smart_coordinator"]
     wallbox = data["wallbox_coordinator"]
-    modbus = data["modbus_coordinator"]
+    modbus = data["modbus_coordinator"]  # wird bald entfernt
+    meter = data["meter_coordinator"]
     device_info = data["device_info"]
     serial = data["serial"]
 
@@ -35,7 +38,10 @@ async def async_setup_entry(
         KsemSmartmeterSensor(smart, key, name, unit, device_info, serial)
         for key, (name, unit) in SENSOR_TYPES.items()
     ]
-
+    obis_entities = [
+        KsemObisModbusSensor(meter, addr, spec, device_info)
+        for addr, spec in OBIS_SENSOR_DEFINITIONS.items()
+    ]
     wallbox_entities = []
     wallbox_device_info = None
     for wb in wallbox.data.get("evse", []):
@@ -70,7 +76,11 @@ async def async_setup_entry(
     evse_power_entity = KsemEvseAvailablePowerSensor(wallbox, wallbox_device_info)
 
     async_add_entities(
-        smartmeter_entities + wallbox_entities + modbus_entities + [evse_power_entity]
+        smartmeter_entities
+        + wallbox_entities
+        + modbus_entities
+        + [evse_power_entity]
+        + obis_entities
     )
 
 
@@ -120,11 +130,12 @@ class KsemSmartmeterSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, key, name, unit, device_info, serial):
         super().__init__(coordinator)
         self._sensor_key = key
-        self._attr_name = f"KSEM {name}"
+        self._attr_name = f"{name}"
         self._attr_native_unit_of_measurement = unit
         self._attr_unique_id = f"{serial}_{key.lower()}"
         self._attr_device_info = device_info
         self._attr_state_class = SensorStateClass.MEASUREMENT
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property
     def native_value(self):
@@ -179,3 +190,25 @@ class KsemWallboxModbusSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         return self.coordinator.data.get(self._reg["name"])
+
+
+class KsemObisModbusSensor(CoordinatorEntity, SensorEntity):
+    def __init__(self, coordinator, address, spec, device_info):
+        super().__init__(coordinator)
+        self._address = address
+        self._key = spec["name"]
+        self._attr_name = f"{spec['name']}"
+        self._attr_native_unit_of_measurement = spec["unit"]
+        self._attr_device_class = spec.get("device_class")
+        self._attr_state_class = (
+            SensorStateClass.MEASUREMENT
+            if spec.get("state_class") == "measurement"
+            else SensorStateClass.TOTAL_INCREASING
+        )
+        ident = next(iter(device_info["identifiers"]))[1]
+        self._attr_unique_id = f"{ident}_obis_{address}"
+        self._attr_device_info = device_info
+
+    @property
+    def native_value(self):
+        return self.coordinator.data.get(self._key)
