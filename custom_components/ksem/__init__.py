@@ -8,7 +8,7 @@ from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC
 from datetime import timedelta
 from .const import DOMAIN
 from .api import KsemClient
-from .modbus_helper import ModbusWallboxClient, ModbusSmartMeterClient
+from .modbus_helper import KsemModbusClient
 
 _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ["sensor", "number", "select", "switch"]
@@ -25,8 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     host = entry.data["host"]
     password = entry.data["password"]
     client = KsemClient(hass, host, password)
-    modbus_client = ModbusWallboxClient(host)
-    meter_client = ModbusSmartMeterClient(host)
+    modbus_client = KsemModbusClient(host)
 
     async def _update_smartmeter():
         try:
@@ -78,18 +77,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 f"Wallbox-Daten konnten nicht geladen werden: {err}"
             ) from err
 
-    async def async_update_meter():
-        _LOGGER.info("Update Modbus-Meter")
-        try:
-            return await meter_client.read_all()
-        except Exception as err:
-            raise UpdateFailed(f"Modbus-Meter Fehler: {err}")
-
     async def _update_modbus():
         try:
-            return await modbus_client.read_all()
+            return await modbus_client.read_all()  # liest das komplette Mapping
         except Exception as err:
-            raise UpdateFailed(f"Modbus-Wallbox-Fehler: {err}")
+            raise UpdateFailed(f"Modbus-Fehler: {err}")
 
     smart_coordinator = DataUpdateCoordinator(
         hass,
@@ -108,23 +100,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     modbus_coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
-        name="ksem_modbus_wallbox",
+        name="ksem_modbus_all",
         update_method=_update_modbus,
         update_interval=datetime.timedelta(seconds=10),
-    )
-
-    meter_coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="ksem_modbus_meter",
-        update_method=async_update_meter,
-        update_interval=timedelta(seconds=10),
     )
 
     await smart_coordinator.async_refresh()
     await wallbox_coordinator.async_refresh()
     await modbus_coordinator.async_refresh()
-    await meter_coordinator.async_refresh()
 
     info = await client.get_device_info()
     mac = info.get("Mac")
@@ -151,8 +134,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "modbus_coordinator": modbus_coordinator,
         "device_info": device_info,
         "serial": serial,
-        "meter_coordinator": meter_coordinator,
-        "meter_client": meter_client,
     }
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

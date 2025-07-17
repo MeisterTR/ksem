@@ -6,8 +6,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.device_registry import DeviceInfo
 from .const import DOMAIN
 from homeassistant.helpers.entity import EntityCategory
-from .modbus_helper import MODBUS_WALLBOX_REGISTERS
-from .modbus_obis_map import OBIS_SENSOR_DEFINITIONS
+from .modbus_map import SENSOR_DEFINITIONS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,8 +28,7 @@ async def async_setup_entry(
     data = hass.data[DOMAIN][entry.entry_id]
     smart = data["smart_coordinator"]
     wallbox = data["wallbox_coordinator"]
-    modbus = data["modbus_coordinator"]  # wird bald entfernt
-    meter = data["meter_coordinator"]
+    modbus = data["modbus_coordinator"]
     device_info = data["device_info"]
     serial = data["serial"]
 
@@ -38,10 +36,7 @@ async def async_setup_entry(
         KsemSmartmeterSensor(smart, key, name, unit, device_info, serial)
         for key, (name, unit) in SENSOR_TYPES.items()
     ]
-    obis_entities = [
-        KsemObisModbusSensor(meter, addr, spec, device_info)
-        for addr, spec in OBIS_SENSOR_DEFINITIONS.items()
-    ]
+
     wallbox_entities = []
     wallbox_device_info = None
     for wb in wallbox.data.get("evse", []):
@@ -66,21 +61,23 @@ async def async_setup_entry(
             KsemWallboxSensor(uuid, f"{label} State", model, serial, version, state)
         )
 
+    obis_entities = []
+    for addr, spec in SENSOR_DEFINITIONS.items():
+        if spec["device"] == "smartmeter":
+            info = device_info
+        elif spec["device"] == "wallbox":
+            info = wallbox_device_info
+        else:
+            info = device_info  # fallback
+        obis_entities.append(KsemObisModbusSensor(modbus, addr, spec, info))
+
     # Speichere device_info zur Weitergabe
     hass.data[DOMAIN][entry.entry_id]["wallbox_device_info"] = wallbox_device_info
 
-    modbus_entities = [
-        KsemWallboxModbusSensor(modbus, reg, wallbox_device_info)
-        for reg in MODBUS_WALLBOX_REGISTERS
-    ]
     evse_power_entity = KsemEvseAvailablePowerSensor(wallbox, wallbox_device_info)
 
     async_add_entities(
-        smartmeter_entities
-        + wallbox_entities
-        + modbus_entities
-        + [evse_power_entity]
-        + obis_entities
+        smartmeter_entities + wallbox_entities + [evse_power_entity] + obis_entities
     )
 
 
@@ -172,26 +169,6 @@ class KsemWallboxSensor(SensorEntity):
         }
 
 
-class KsemWallboxModbusSensor(CoordinatorEntity, SensorEntity):
-    def __init__(self, coordinator, reg, device_info):
-        super().__init__(coordinator)
-        self._reg = reg
-        self._attr_name = reg["name"]
-        self._attr_unique_id = f"modbus_{reg['address']}"
-        self._attr_native_unit_of_measurement = reg.get("unit", "")
-        self._attr_device_class = reg.get("device_class")
-        self._attr_state_class = (
-            SensorStateClass.MEASUREMENT
-            if reg.get("state_class") == "measurement"
-            else SensorStateClass.TOTAL_INCREASING
-        )
-        self._attr_device_info = device_info
-
-    @property
-    def native_value(self):
-        return self.coordinator.data.get(self._reg["name"])
-
-
 class KsemObisModbusSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator, address, spec, device_info):
         super().__init__(coordinator)
@@ -200,11 +177,25 @@ class KsemObisModbusSensor(CoordinatorEntity, SensorEntity):
         self._attr_name = f"{spec['name']}"
         self._attr_native_unit_of_measurement = spec["unit"]
         self._attr_device_class = spec.get("device_class")
-        self._attr_state_class = (
-            SensorStateClass.MEASUREMENT
-            if spec.get("state_class") == "measurement"
-            else SensorStateClass.TOTAL_INCREASING
-        )
+        # Automatische State-Class-Erkennung nach unit / device_class
+        if spec.get("device_class") == "energy" or spec.get("unit") in (
+            "Wh",
+            "kWh",
+            "VAh",
+            "varh",
+        ):
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        elif spec.get("device_class") in (
+            "power",
+            "voltage",
+            "current",
+            "battery",
+            "temperature",
+            "frequency",
+        ):
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+        else:
+            self._attr_state_class = None  # fallback, z. B. für Strings oder enums
         ident = next(iter(device_info["identifiers"]))[1]
         self._attr_unique_id = f"{ident}_obis_{address}"
         self._attr_device_info = device_info
