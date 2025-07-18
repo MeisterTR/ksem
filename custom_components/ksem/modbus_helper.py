@@ -58,6 +58,7 @@ class KsemModbusClient:
         if self._client:
             await self._client.close()
             self._client = None
+            self._protocol = None
             _LOGGER.debug("Modbus TCP Verbindung getrennt")
 
     async def read_all(self):
@@ -73,8 +74,9 @@ class KsemModbusClient:
 
             try:
                 result = await self._client.read_holding_registers(
-                    start, total_words, unit=self.unit_id
+                    address=start, count=total_words, slave=self.unit_id
                 )
+
                 if result.isError():
                     _LOGGER.warning(
                         "Modbus-Fehler beim Lesen von %s-%s", start, start + total_words
@@ -86,24 +88,22 @@ class KsemModbusClient:
                 offset = 0
                 for addr, size in block:
                     spec = SENSOR_DEFINITIONS[addr]
-                    decoder = BinaryPayloadDecoder.fromRegisters(
-                        registers[offset : offset + size],
-                        byteorder=Endian.BIG,
-                        wordorder=Endian.BIG,
-                    )
-                    val = None
-                    if spec["type"] == "uint16":
-                        val = decoder.decode_16bit_uint()
-                    elif spec["type"] == "int16":
-                        val = decoder.decode_16bit_int()
-                    elif spec["type"] == "uint32":
-                        val = decoder.decode_32bit_uint()
-                    elif spec["type"] == "int32":
-                        val = decoder.decode_32bit_int()
-                    elif spec["type"] == "uint64":
-                        val = decoder.decode_64bit_uint()
-                    else:
-                        _LOGGER.warning("Unbekannter Typ: %s", spec["type"])
+                    raw_regs = registers[offset : offset + size]
+
+                    try:
+                        datatype_enum = getattr(
+                            self._client.DATATYPE, spec["type"].upper()
+                        )
+                        val = self._client.convert_from_registers(
+                            raw_regs,
+                            data_type=datatype_enum,
+                            # byteorder="big",
+                            word_order="big",
+                        )
+                    except Exception as err:
+                        _LOGGER.warning(
+                            "Fehler beim Konvertieren von %s: %s", spec["name"], err
+                        )
                         offset += size
                         continue
 
