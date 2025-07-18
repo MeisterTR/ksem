@@ -95,47 +95,59 @@ class KsemChargeModeSelect(SelectEntity):
     async def _listen_websocket(self):
         url = f"ws://{self._client.host}/api/data-transfer/ws/json/json/local/config/e-mobility/chargemode"
         session = async_get_clientsession(self._hass)
-        try:
-            async with session.ws_connect(
-                url, headers={"Authorization": f"Bearer {self._token}"}
-            ) as ws:
-                await ws.send_str(f"Bearer {self._token}")
-                async for msg in ws:
-                    if msg.type == WSMsgType.TEXT:
-                        try:
-                            import json
 
-                            data = json.loads(msg.data)
-                            if data.get("topic", "").endswith("chargemode"):
-                                msg_data = data.get("msg", {})
-                                mode = msg_data.get("mode")
-                                if mode != self._api_mode:
-                                    _LOGGER.debug("WebSocket Update: mode=%s", mode)
-                                    self._api_mode = mode
-                                    self.async_write_ha_state()
+        while True:
+            try:
+                async with session.ws_connect(
+                    url, headers={"Authorization": f"Bearer {self._token}"}
+                ) as ws:
+                    await ws.send_str(f"Bearer {self._token}")
+                    _LOGGER.info("WebSocket verbunden für Lademodus")
 
-                                # Live-Aktualisierung number.py
-                                quotas = self._hass.data[DOMAIN][self._entry_id].get(
-                                    "quota_entities", {}
-                                )
-                                if "minpv" in quotas and "minpvpowerquota" in msg_data:
-                                    quotas["minpv"].update_value(
-                                        msg_data["minpvpowerquota"]
-                                    )
-                                if (
-                                    "mincharge" in quotas
-                                    and "mincharginpowerquota" in msg_data
-                                ):
-                                    quotas["mincharge"].update_value(
-                                        msg_data["mincharginpowerquota"]
-                                    )
+                    async for msg in ws:
+                        if msg.type == WSMsgType.TEXT:
+                            try:
+                                import json
 
-                                # Cache
-                                self._hass.data[DOMAIN][self._entry_id][
-                                    "last_chargemode"
-                                ] = msg_data
+                                data = json.loads(msg.data)
+                                if data.get("topic", "").endswith("chargemode"):
+                                    msg_data = data.get("msg", {})
+                                    mode = msg_data.get("mode")
+                                    if mode != self._api_mode:
+                                        _LOGGER.debug("WebSocket Update: mode=%s", mode)
+                                        self._api_mode = mode
+                                        self.async_write_ha_state()
 
-                        except Exception as e:
-                            _LOGGER.warning("WebSocket JSON decode error: %s", e)
-        except Exception as err:
-            _LOGGER.error("WebSocket connection failed: %s", err)
+                                    quotas = self._hass.data[DOMAIN][
+                                        self._entry_id
+                                    ].get("quota_entities", {})
+                                    if (
+                                        "minpv" in quotas
+                                        and "minpvpowerquota" in msg_data
+                                    ):
+                                        quotas["minpv"].update_value(
+                                            msg_data["minpvpowerquota"]
+                                        )
+                                    if (
+                                        "mincharge" in quotas
+                                        and "mincharginpowerquota" in msg_data
+                                    ):
+                                        quotas["mincharge"].update_value(
+                                            msg_data["mincharginpowerquota"]
+                                        )
+
+                                    self._hass.data[DOMAIN][self._entry_id][
+                                        "last_chargemode"
+                                    ] = msg_data
+
+                            except Exception as e:
+                                _LOGGER.warning("WebSocket JSON decode error: %s", e)
+                        elif msg.type == WSMsgType.ERROR:
+                            _LOGGER.warning("WebSocket-Fehler: %s", msg)
+                            break
+
+            except Exception as err:
+                _LOGGER.error("WebSocket-Verbindung fehlgeschlagen: %s", err)
+
+            _LOGGER.info("WebSocket getrennt, versuche Neuverbindung in 30 Sekunden...")
+            await asyncio.sleep(30)
