@@ -7,6 +7,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from .const import DOMAIN
 from homeassistant.helpers.entity import EntityCategory
 from .modbus_map import SENSOR_DEFINITIONS
+from homeassistant.components.sensor import SensorDeviceClass
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -174,32 +175,42 @@ class KsemObisModbusSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._address = address
         self._key = spec["name"]
+        self._mapping = spec.get("map")
         self._attr_name = f"{spec['name']}"
         self._attr_native_unit_of_measurement = spec["unit"]
-        self._attr_device_class = spec.get("device_class")
-        # Automatische State-Class-Erkennung nach unit / device_class
-        if spec.get("device_class") == "energy" or spec.get("unit") in (
-            "Wh",
-            "kWh",
-            "VAh",
-            "varh",
-        ):
-            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
-        elif spec.get("device_class") in (
-            "power",
-            "voltage",
-            "current",
-            "battery",
-            "temperature",
-            "frequency",
-        ):
-            self._attr_state_class = SensorStateClass.MEASUREMENT
+        # ENUM-Erkennung
+        if spec.get("device_class") == "enum":
+            self._attr_device_class = SensorDeviceClass.ENUM
+            self._attr_options = list(self._mapping.values()) if self._mapping else []
+            self._attr_native_unit_of_measurement = None
+            self._attr_state_class = None
         else:
-            self._attr_state_class = None  # fallback, z. B. für Strings oder enums
+            self._attr_device_class = spec.get("device_class")
+            if spec.get("device_class") == "energy" or spec.get("unit") in (
+                "Wh",
+                "kWh",
+                "VAh",
+                "varh",
+            ):
+                self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+            elif spec.get("device_class") in (
+                "power",
+                "voltage",
+                "current",
+                "battery",
+                "temperature",
+                "frequency",
+            ):
+                self._attr_state_class = SensorStateClass.MEASUREMENT
+            else:
+                self._attr_state_class = None
         ident = next(iter(device_info["identifiers"]))[1]
         self._attr_unique_id = f"{ident}_obis_{address}"
         self._attr_device_info = device_info
 
     @property
     def native_value(self):
-        return self.coordinator.data.get(self._key)
+        val = self.coordinator.data.get(self._key)
+        if self._mapping:
+            return self._mapping.get(int(val), f"Unbekannt ({val})")
+        return val

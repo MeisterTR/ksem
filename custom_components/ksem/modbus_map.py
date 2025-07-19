@@ -505,6 +505,18 @@ SENSOR_DEFINITIONS = {
         "scale": 1,
         "type": "uint64",
         "device": "wallbox",
+        "device_class": "enum",
+        "state_class": None,
+        "map": {
+            0: "Unbekannt",
+            1: "Offline",
+            2: "Verbunden",
+            3: "Pausiert",
+            4: "Probing",
+            5: "Ladend",
+            6: "Kommunikationsfehler",
+            7: "Service Mode",
+        },
     },
     49218: {
         "name": "Enector_L1",
