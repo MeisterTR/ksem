@@ -1,13 +1,14 @@
 {
   "domain": "ksem",
   "name": "KSEM Wallbox",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "documentation": "https://github.com/MeisterTR/ksem",
   "issue_tracker": "https://github.com/MeisterTR/ksem/issues",
   "dependencies": [],
   "codeowners": ["@MeisterTR"],
-  "requirements": [],
   "config_flow": true,
   "iot_class": "local_polling",
-  "brand": "ksem"
+  "requirements": [
+    "pymodbus>=3.7.0"
+  ]
 }
